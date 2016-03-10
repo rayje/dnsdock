@@ -247,7 +247,7 @@ func (s *DNSServer) handleRequest(w dns.ResponseWriter, r *dns.Msg) {
 
 	fmt.Println("DNS Server: handleRequest - Querying services")
 	for service := range s.queryServices(query) {
-		fmt.Printf("DNS Server: handleRequest - service %+v\n", service)
+		fmt.Printf("DNS Server: handleRequest ---- service %+v\n", service)
 		var rr dns.RR
 		switch r.Question[0].Qtype {
 		case dns.TypeA:
@@ -368,15 +368,19 @@ func (s *DNSServer) queryIp(query string) chan *Service {
 }
 
 func (s *DNSServer) queryServices(query string) chan *Service {
+	fmt.Println("DNS Server: queryServices - start")
 	c := make(chan *Service, 3)
 
 	go func() {
 		query := strings.Split(strings.ToLower(query), ".")
+		fmt.Printf("DNS Server: queryServices - query -> %+v\n", query)
 
 		defer s.lock.RUnlock()
 		s.lock.RLock()
 
+		fmt.Println("DNS Server: queryServices - looping over services")
 		for _, service := range s.services {
+			fmt.Printf("DNS Server: queryServices ----> service %+v\n")
 			// create the name for this service, skip empty strings
 			test := []string{}
 			// todo: add some cache to avoid calculating this every time
@@ -391,17 +395,22 @@ func (s *DNSServer) queryServices(query string) chan *Service {
 			test = append(test, s.config.domain...)
 
 			if isPrefixQuery(query, test) {
+				fmt.Printf("DNS Server: queryServices ------> isPrefixQuery : %+v\n", service)
 				c <- service
 			}
 
+			fmt.Println("DNS Server: queryServices --------> checking aliases")
 			// check aliases
 			for _, alias := range service.Aliases {
+				fmt.Printf("DNS Server: queryServices ----------> alias: %+v\n", alias)
 				if isPrefixQuery(query, strings.Split(alias, ".")) {
+					fmt.Printf("DNS Server: queryServices ------> isPrefixQuery::alias : %+v\n", service)
 					c <- service
 				}
 			}
 		}
 
+		fmt.Println("DNS Server: queryServices - closing channel")
 		close(c)
 
 	}()
