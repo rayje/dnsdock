@@ -377,17 +377,26 @@ func (s *DNSServer) queryServices(query string) chan *Service {
 	c := make(chan *Service, 3)
 
 	go func() {
+		fmt.Println("DNS Server: queryServices - running go routine")
 		query := strings.Split(strings.ToLower(query), ".")
 		fmt.Printf("DNS Server: queryServices - query -> %+v\n", query)
 
-		defer s.lock.RUnlock()
+		defer func() {
+			fmt.Printf("DNS Server: querySerices - go - Releasing Lock: %+v\n", query)
+			s.lock.RUnlock()
+			fmt.Printf("DNS Server: querySerices - go - Lock released: %+v\n", query)
+		}()
+
+		fmt.Printf("DNS Server: queryServices - go - waiting to acquire lock: %+v\n", query)
 		s.lock.RLock()
+		fmt.Printf("DNS Server: queryServides - go - acquired lock: %+v\n", query)
 
 		if len(s.services) == 0 {
 			fmt.Println("DNS Server: queryServices - services is empty")
 		} else {
 			fmt.Printf("DNS Server: queryServices - len(services) = %+v\n", len(s.services))
 		}
+
 		fmt.Println("DNS Server: queryServices - looping over services")
 		for _, service := range s.services {
 			fmt.Printf("DNS Server: queryServices ----> service %+v\n", service)
