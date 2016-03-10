@@ -84,11 +84,13 @@ func (s *DNSServer) AddService(id string, service Service) {
 }
 
 func (s *DNSServer) RemoveService(id string) error {
+	fmt.Printf("DNS Server: RemoveService - %s\n", id)
 	defer s.lock.Unlock()
 	s.lock.Lock()
 
 	id = s.getExpandedID(id)
 	if _, ok := s.services[id]; !ok {
+		fmt.Println("No such service: " + id)
 		return errors.New("No such service: " + id)
 	}
 
@@ -96,6 +98,7 @@ func (s *DNSServer) RemoveService(id string) error {
 		s.mux.HandleRemove(alias + ".")
 	}
 
+	fmt.Println("DNS Server: RemoveService - deleting service -> %s\n", id)
 	delete(s.services, id)
 
 	if s.config.verbose {
@@ -347,6 +350,7 @@ func (s *DNSServer) handleReverseRequest(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 func (s *DNSServer) queryIp(query string) chan *Service {
+	fmt.Printf("DNS Server: queryIp - %s\n", query)
 	c := make(chan *Service, 3)
 	reversedIp := strings.TrimSuffix(query, ".in-addr.arpa")
 	ip := strings.Join(reverse(strings.Split(reversedIp, ".")), ".")
@@ -357,6 +361,7 @@ func (s *DNSServer) queryIp(query string) chan *Service {
 
 		for _, service := range s.services {
 			if service.Ip.String() == ip {
+				fmt.Printf("DNS Server: queryIp -> returning service -> %+v\n", service)
 				c <- service
 			}
 		}
@@ -378,9 +383,14 @@ func (s *DNSServer) queryServices(query string) chan *Service {
 		defer s.lock.RUnlock()
 		s.lock.RLock()
 
+		if len(s.services) == 0 {
+			fmt.Println("DNS Server: queryServices - services is empty")
+		} else {
+			fmt.Printf("DNS Server: queryServices - len(services) = %+v\n", len(s.services))
+		}
 		fmt.Println("DNS Server: queryServices - looping over services")
 		for _, service := range s.services {
-			fmt.Printf("DNS Server: queryServices ----> service %+v\n")
+			fmt.Printf("DNS Server: queryServices ----> service %+v\n", service)
 			// create the name for this service, skip empty strings
 			test := []string{}
 			// todo: add some cache to avoid calculating this every time
