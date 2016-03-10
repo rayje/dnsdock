@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"regexp"
@@ -66,6 +67,7 @@ func (s *DNSServer) Stop() {
 }
 
 func (s *DNSServer) AddService(id string, service Service) {
+	fmt.Println("Adding Service to DNSServer")
 	defer s.lock.Unlock()
 	s.lock.Lock()
 
@@ -213,6 +215,7 @@ func (s *DNSServer) makeServiceMX(n string, service *Service) dns.RR {
 }
 
 func (s *DNSServer) handleRequest(w dns.ResponseWriter, r *dns.Msg) {
+	fmt.Println("DNS Server: handleRequest start")
 	m := new(dns.Msg)
 	m.SetReply(r)
 
@@ -220,24 +223,29 @@ func (s *DNSServer) handleRequest(w dns.ResponseWriter, r *dns.Msg) {
 	if len(r.Question) == 0 {
 		m.Ns = s.createSOA()
 		w.WriteMsg(m)
+		fmt.Println("DNS Server: handleRequest - empty request, returning empty response")
 		return
 	}
 
 	// respond to SOA requests
 	if r.Question[0].Qtype == dns.TypeSOA {
+		fmt.Println("DNS Server: handleRequest - starting SOA")
 		m.Answer = s.createSOA()
 		w.WriteMsg(m)
+		fmt.Println("DNS Server: handleRequest - wrote SOA msg")
 		return
 	}
 
 	m.Answer = make([]dns.RR, 0, 2)
 	query := r.Question[0].Name
+	fmt.Printf("DNS Server: handleRequest - query %+v\n", query)
 
 	// trim off any trailing dot
 	if query[len(query)-1] == '.' {
 		query = query[:len(query)-1]
 	}
 
+	fmt.Println("DNS Server: handleRequest - Querying services")
 	for service := range s.queryServices(query) {
 		var rr dns.RR
 		switch r.Question[0].Qtype {
@@ -260,14 +268,19 @@ func (s *DNSServer) handleRequest(w dns.ResponseWriter, r *dns.Msg) {
 
 	// We didn't find a record corresponding to the query
 	if len(m.Answer) == 0 {
+		fmt.Println("DNS Server: handleRequest - didn't find a record corresponding to the query")
 		m.Ns = s.createSOA()
 		m.SetRcode(r, dns.RcodeNameError) // NXDOMAIN
 	}
 
+	fmt.Println("DNS Server: handleRequest - writing message")
 	w.WriteMsg(m)
+
+	fmt.Println("DNS Server: handleRequest - end")
 }
 
 func (s *DNSServer) handleReverseRequest(w dns.ResponseWriter, r *dns.Msg) {
+	fmt.Println("DNS Server: handleReverseRequest - start")
 	m := new(dns.Msg)
 	m.SetReply(r)
 
@@ -275,11 +288,13 @@ func (s *DNSServer) handleReverseRequest(w dns.ResponseWriter, r *dns.Msg) {
 	if len(r.Question) == 0 {
 		m.Ns = s.createSOA()
 		w.WriteMsg(m)
+		fmt.Println("DNS Server: handleReverseRequest - empty request, sending empty response")
 		return
 	}
 
 	m.Answer = make([]dns.RR, 0, 2)
 	query := r.Question[0].Name
+	fmt.Printf("DNS Server: handleReverseRequest - query %+v\n", query)
 
 	// trim off any trailing dot
 	if query[len(query)-1] == '.' {
@@ -288,8 +303,10 @@ func (s *DNSServer) handleReverseRequest(w dns.ResponseWriter, r *dns.Msg) {
 
 	for service := range s.queryIp(query) {
 		if r.Question[0].Qtype != dns.TypePTR {
+			fmt.Println("DNS Server: handleReverseRequest - starting SOA")
 			m.Ns = s.createSOA()
 			w.WriteMsg(m)
+			fmt.Println("DNS Server: handleReverseRequest - wrote SOA msg")
 			return
 		}
 
@@ -301,6 +318,7 @@ func (s *DNSServer) handleReverseRequest(w dns.ResponseWriter, r *dns.Msg) {
 		}
 
 		for domain := range s.listDomains(service) {
+			fmt.Printf("DNS Server: handleReverseRequest - listDomains -> %+v\n", domain)
 			rr := new(dns.PTR)
 			rr.Hdr = dns.RR_Header{
 				Name:   r.Question[0].Name,
@@ -315,8 +333,10 @@ func (s *DNSServer) handleReverseRequest(w dns.ResponseWriter, r *dns.Msg) {
 	}
 
 	if len(m.Answer) != 0 {
+		fmt.Printf("DNS Server: handleReverseRequest - got answer -> %+v\n", m.Answer)
 		w.WriteMsg(m)
 	} else {
+		fmt.Println("DNS Server: handleReverseRequest: - didn't find record, forwarding")
 		// We didn't find a record corresponding to the query,
 		// try forwarding
 		s.handleForward(w, r)

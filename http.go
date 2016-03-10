@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/gorilla/mux"
+	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 type HTTPServer struct {
@@ -66,6 +68,7 @@ func (s *HTTPServer) getService(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *HTTPServer) addService(w http.ResponseWriter, req *http.Request) {
+	fmt.Println("Adding Service")
 	vars := mux.Vars(req)
 
 	id, ok := vars["id"]
