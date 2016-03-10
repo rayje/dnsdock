@@ -8,10 +8,13 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/miekg/dns"
 )
+
+var ops uint64 = 0
 
 type Service struct {
 	Name    string
@@ -381,15 +384,17 @@ func (s *DNSServer) queryServices(query string) chan *Service {
 		query := strings.Split(strings.ToLower(query), ".")
 		fmt.Printf("DNS Server: queryServices - query -> %+v\n", query)
 
+		guuid := atomic.AddUint64(&ops, 1)
+
 		defer func() {
-			fmt.Printf("DNS Server: querySerices - go - Releasing Lock: %+v\n", query)
+			fmt.Printf("DNS Server: querySerices - go - Releasing Lock: %+v: %+v\n", guuid, query)
 			s.lock.RUnlock()
-			fmt.Printf("DNS Server: querySerices - go - Lock released: %+v\n", query)
+			fmt.Printf("DNS Server: querySerices - go - Lock released: %+v: %+v\n", guuid, query)
 		}()
 
-		fmt.Printf("DNS Server: queryServices - go - waiting to acquire lock: %+v\n", query)
+		fmt.Printf("DNS Server: queryServices - go - waiting to acquire lock: %+v: %+v\n", guuid, query)
 		s.lock.RLock()
-		fmt.Printf("DNS Server: queryServides - go - acquired lock: %+v\n", query)
+		fmt.Printf("DNS Server: queryServides - go - acquired lock: %+v: %+v\n", guuid, query)
 
 		if len(s.services) == 0 {
 			fmt.Println("DNS Server: queryServices - services is empty")
