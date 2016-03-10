@@ -247,6 +247,7 @@ func (s *DNSServer) handleRequest(w dns.ResponseWriter, r *dns.Msg) {
 
 	fmt.Println("DNS Server: handleRequest - Querying services")
 	for service := range s.queryServices(query) {
+		fmt.Printf("DNS Server: handleRequest - service %+v\n", service)
 		var rr dns.RR
 		switch r.Question[0].Qtype {
 		case dns.TypeA:
@@ -264,7 +265,9 @@ func (s *DNSServer) handleRequest(w dns.ResponseWriter, r *dns.Msg) {
 		}
 
 		m.Answer = append(m.Answer, rr)
+		fmt.Printf("DNS Server: handleRequest - appended answer -> %+v\n", m.Answer)
 	}
+	fmt.Println("DNS Server: handleRequest - Completed Querying services")
 
 	// We didn't find a record corresponding to the query
 	if len(m.Answer) == 0 {
